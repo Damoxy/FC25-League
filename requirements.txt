@@ -1,3 +1,5 @@
 numpy==1.26.4
 easyocr
 streamlit
+gspread
+oauth2client
