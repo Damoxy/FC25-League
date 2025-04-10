@@ -93,7 +93,8 @@ if 'home_score' not in st.session_state or 'away_score' not in st.session_state:
                     if st.button("🚩 Flag Admin"):
                         flagged_for_admin = True
                         st.info("Flag has been sent to admin (functionality coming soon).")
-                    st.stop()
+                    st.stop()  # Stop the execution if the score is flagged
+
             else:
                 st.warning("Could not find two valid numeric scores.")
         else:
@@ -110,8 +111,8 @@ selected_round = st.selectbox("Select Round", rounds)
 
 round_df = df[df['Round'] == selected_round]
 
-st.write(f"Selected Round: {selected_round}")
-st.write("Filtered DataFrame for selected round:", round_df)
+st.write(f"ROUND {selected_round} Fixtures:")
+st.dataframe(round_df)
 
 if not round_df.empty:
     match_options = round_df.apply(lambda row: f"{row['Home']} vs {row['Away']}", axis=1).tolist()
