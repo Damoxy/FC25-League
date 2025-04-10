@@ -7,6 +7,7 @@ import re
 import gspread
 import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
+import base64
 
 # --- STREAMLIT SETUP ---
 st.set_page_config(page_title="NIUK FC 25 Fixtures Extractor", layout="centered")
@@ -47,12 +48,23 @@ def extract_home_away_scores(text_lines):
 # --- GOOGLE SHEETS SETUP ---
 @st.cache_resource
 def load_gsheet():
+    # Access the base64 encoded JSON credentials from Streamlit's secrets
+    encoded_service_json = st.secrets["general"]["google_service_json"]
+
+    # Decode the base64 string back into the original bytes
+    decoded_service_json = base64.b64decode(encoded_service_json)
+
+    # Save the decoded bytes to a file (service.json)
+    with open("service.json", "wb") as f:
+        f.write(decoded_service_json)
+
+    # Authenticate with Google Sheets API
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_name("service.json", scope)
     client = gspread.authorize(creds)
 
-    # Use Spreadsheet ID instead of the sheet name
-    spreadsheet_id = "1RnNitFtsNaebQ_j0ed-LjOMzqPzBatjE5kuqHmgr6g8"  # Replace with your actual Spreadsheet ID
+    # Use Spreadsheet ID from secrets instead of hardcoded
+    spreadsheet_id = st.secrets["general"]["spreadsheet_id"]  # Assuming you store the ID in secrets.toml
     sheet = client.open_by_key(spreadsheet_id).sheet1
     return sheet
 
