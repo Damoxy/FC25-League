@@ -1,49 +1,58 @@
 import streamlit as st
-import easyocr
 from PIL import Image
+import easyocr
 import io
 import numpy as np
 
-# Initialize the OCR reader
-reader = easyocr.Reader(['en'], gpu=False)
+# Must be the FIRST Streamlit command
+st.set_page_config(page_title="OCR Score Extractor", layout="centered")
 
-# Function to perform OCR on the uploaded image
+# Lazy load the OCR reader
+@st.cache_resource
+def load_reader():
+    return easyocr.Reader(['en'], gpu=False)
+
+reader = load_reader()
+
+def resize_image(image, max_width=800):
+    if image.width > max_width:
+        ratio = max_width / float(image.width)
+        new_height = int((float(image.height) * float(ratio)))
+        return image.resize((max_width, new_height), Image.Resampling.LANCZOS)
+    return image
+
 def ocr_from_image(image_bytes):
-    # Convert the bytes to a numpy array
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    image = resize_image(image)
     image_np = np.array(image)
     result = reader.readtext(image_np)
     return result
 
-# Function to extract score from specific lines (line 5 for home, line 6 for away)
 def extract_home_away_scores(text_lines):
-    # Make sure we have at least 6 lines
     if len(text_lines) >= 6:
-        home_score = text_lines[4]  # Line 5 in the list (index 4)
-        away_score = text_lines[5]  # Line 6 in the list (index 5)
-        return home_score, away_score
+        return text_lines[4], text_lines[5]
     return None, None
 
-# Streamlit app layout
-st.title("📷 OCR Score Extractor with EasyOCR")
+# Streamlit UI
+st.title("📷 OCR Score Extractor")
 
-# Upload image
-uploaded_file = st.file_uploader("Upload an image with a score line (e.g. FIFA screenshot)", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("Upload a screenshot (e.g. FIFA score screen)", type=["jpg", "jpeg", "png"])
 
-if uploaded_file is not None:
-    # Display the uploaded image
+if uploaded_file:
     st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
 
-    # Perform OCR on the image
-    result = ocr_from_image(uploaded_file.read())
-    extracted_text = [detection[1] for detection in result]
+    with st.spinner("Extracting text..."):
+        result = ocr_from_image(uploaded_file.read())
+        extracted_text = [detection[1] for detection in result]
 
-    # Extract home and away scores from line 5 and line 6
-    home_score, away_score = extract_home_away_scores(extracted_text)
+    if extracted_text:
+        home_score, away_score = extract_home_away_scores(extracted_text)
 
-    if home_score and away_score:
-        st.subheader("🏆 Extracted Game Information")
-        st.markdown(f"**Home Score :** {home_score}")
-        st.markdown(f"**Away Score :** {away_score}")
+        st.subheader("🏆 Detected Scores")
+        if home_score and away_score:
+            st.markdown(f"**Home Score:** {home_score}")
+            st.markdown(f"**Away Score:** {away_score}")
+        else:
+            st.warning("Could not find scores in the expected lines.")
     else:
-        st.error("⚠️ Could not find scores on line 5 and 6.")
+        st.error("No text detected.")
