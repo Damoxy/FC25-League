@@ -3,16 +3,20 @@ from PIL import Image
 import easyocr
 import io
 import numpy as np
+import re
 
 # Must be the FIRST Streamlit command
 st.set_page_config(page_title="OCR Score Extractor", layout="centered")
+
 
 # Lazy load the OCR reader
 @st.cache_resource
 def load_reader():
     return easyocr.Reader(['en'], gpu=False)
 
+
 reader = load_reader()
+
 
 def resize_image(image, max_width=800):
     if image.width > max_width:
@@ -21,6 +25,7 @@ def resize_image(image, max_width=800):
         return image.resize((max_width, new_height), Image.Resampling.LANCZOS)
     return image
 
+
 def ocr_from_image(image_bytes):
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     image = resize_image(image)
@@ -28,10 +33,14 @@ def ocr_from_image(image_bytes):
     result = reader.readtext(image_np)
     return result
 
+
 def extract_home_away_scores(text_lines):
-    if len(text_lines) >= 6:
-        return text_lines[4], text_lines[5]
+    # Extract digit-only strings (e.g. "1", "12", "0")
+    scores = [text for text in text_lines if re.fullmatch(r"\d+", text)]
+    if len(scores) >= 2:
+        return scores[0], scores[1]  # Assume first two are home and away
     return None, None
+
 
 # Streamlit UI
 st.title("📷 OCR Score Extractor")
@@ -53,6 +62,9 @@ if uploaded_file:
             st.markdown(f"**Home Score:** {home_score}")
             st.markdown(f"**Away Score:** {away_score}")
         else:
-            st.warning("Could not find scores in the expected lines.")
+            st.warning("Could not find two valid numeric scores.")
+
+        st.subheader("🔍 Full Extracted Text")
+        st.write(extracted_text)
     else:
         st.error("No text detected.")
